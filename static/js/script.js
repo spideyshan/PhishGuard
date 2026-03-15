@@ -246,9 +246,144 @@ document.addEventListener('DOMContentLoaded', () => {
         return [`\n── ${title} ──`, ...items.map(i => `  [${i.type.toUpperCase()}] ${i.message}`)];
     }
 
-    // ── PDF / Print ───────────────────────────────────────────────
+    // ── PDF Export (full report via html2pdf.js) ──────────────────
     if (printBtn) {
-        printBtn.addEventListener('click', () => window.print());
+        printBtn.addEventListener('click', () => {
+            const r = window._lastResult;
+            if (!r) return;
+
+            // Helper: build an indicator section
+            const buildSection = (title, icon, items) => {
+                if (!items || !items.length) return '';
+                const rows = items.map(i => {
+                    const colours = { success:'#10b981', warning:'#f59e0b', danger:'#ef4444', info:'#3b82f6' };
+                    const bgs     = { success:'#052e16', warning:'#1c0f00', danger:'#1f0f0f', info:'#0c1a3b' };
+                    const c = colours[i.type] || '#3b82f6';
+                    const b = bgs[i.type]     || '#0c1a3b';
+                    return `<div style="padding:10px 14px;border-radius:6px;margin:6px 0;
+                                       background:${b};border-left:3px solid ${c};
+                                       font-size:12px;color:#e2e8f0;line-height:1.5;">
+                                ${i.message}
+                            </div>`;
+                }).join('');
+                return `<div style="margin-bottom:24px;">
+                    <h3 style="font-size:13px;font-weight:700;color:#60a5fa;
+                               margin:0 0 10px;padding-bottom:8px;
+                               border-bottom:1px solid #1e3a5f;">
+                        ${icon}&nbsp; ${title}
+                    </h3>
+                    ${rows}
+                </div>`;
+            };
+
+            const score      = r.score;
+            const status     = r.status;
+            const scoreColor = score < 30 ? '#10b981' : score < 60 ? '#f59e0b' : '#ef4444';
+            const nowStr     = new Date().toLocaleString();
+            const mlP        = r.ml_prediction || {};
+
+            const html = `<!DOCTYPE html><html>
+<head>
+<meta charset="UTF-8">
+<title>PhishGuard Report – ${r.url}</title>
+<style>
+  body { font-family: Arial, sans-serif; background:#0f172a; color:#e2e8f0; margin:0; padding:32px; }
+  .header { display:flex; align-items:center; gap:12px; margin-bottom:28px;
+            border-bottom:2px solid #1e3a5f; padding-bottom:20px; }
+  .logo-text { font-size:26px; font-weight:800; }
+  .logo-text span { color:#3b82f6; }
+  .badge { display:inline-block; padding:6px 16px; border-radius:20px; font-size:13px; font-weight:700; }
+  .meta-row { display:flex; gap:24px; flex-wrap:wrap; margin-bottom:28px; }
+  .meta-box { background:#1e293b; border:1px solid #1e3a5f; border-radius:10px;
+              padding:14px 20px; flex:1; min-width:140px; }
+  .meta-box .label { font-size:11px; color:#64748b; margin-bottom:4px; }
+  .meta-box .value { font-size:20px; font-weight:800; }
+  .col { display:inline-block; vertical-align:top; width:48%; }
+  .col:first-child { margin-right:4%; }
+  @media (max-width:650px) { .col { width:100%; } }
+  footer { margin-top:32px; border-top:1px solid #1e3a5f; padding-top:16px;
+           font-size:11px; color:#475569; text-align:center; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="logo-text">Phish<span>Guard</span></div>
+    <div style="font-size:12px;color:#64748b;margin-top:4px;">Threat Intelligence Report</div>
+  </div>
+  <div style="margin-left:auto;text-align:right;">
+    <div style="font-size:11px;color:#64748b;">Generated: ${nowStr}</div>
+    <span class="badge" style="margin-top:6px;background:${scoreColor}22;color:${scoreColor};border:1px solid ${scoreColor}">
+      ${status}
+    </span>
+  </div>
+</div>
+
+<div class="meta-row">
+  <div class="meta-box" style="border-color:${scoreColor};flex:0 0 auto;">
+    <div class="label">RISK SCORE</div>
+    <div class="value" style="color:${scoreColor};font-size:36px;">${score}<span style="font-size:16px">/100</span></div>
+  </div>
+  <div class="meta-box" style="flex:2;word-break:break-all;">
+    <div class="label">TARGET URL</div>
+    <div class="value" style="font-size:14px;font-weight:600;">${r.url}</div>
+  </div>
+  <div class="meta-box">
+    <div class="label">ML PREDICTION</div>
+    <div class="value" style="font-size:16px;color:${mlP.prediction==='Phishing'?'#ef4444':'#10b981'}">
+      ${mlP.prediction || 'N/A'}</div>
+    <div style="font-size:12px;color:#64748b;margin-top:2px;">Confidence: ${mlP.confidence || '--'}</div>
+  </div>
+</div>
+
+<div class="col">
+  ${buildSection('1. URL Feature Analyzer',    '🔗', r.url_features)}
+  ${buildSection('2. Domain Information (WHOIS)', '🌐', r.domain_info)}
+  ${buildSection('3. SSL Certificate',          '🔒', r.ssl_check)}
+  ${buildSection('4. Server Geolocation',       '📍', r.geo_info || [])}
+</div>
+<div class="col">
+  ${buildSection('5. Website Content Analysis', '&lt;/&gt;', r.content_analysis)}
+  ${buildSection('6. Global Threat API Checks', '🛡️', r.api_reports)}
+</div>
+
+<footer>
+  PhishGuard &bull; Academic Cybersecurity Project &bull; Report generated ${nowStr}
+</footer>
+
+</body></html>`;
+
+            // Trigger html2pdf download
+            const filename = `PhishGuard_${r.url.replace(/[^a-zA-Z0-9]/g, '_').slice(0,40)}_${Date.now()}.pdf`;
+            const opt = {
+                margin:       [10, 10, 10, 10],
+                filename:     filename,
+                image:        { type: 'jpeg', quality: 0.97 },
+                html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#0f172a' },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+
+            // UI feedback
+            printBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            printBtn.disabled  = true;
+
+            const element = document.createElement('div');
+            element.innerHTML = html;
+            document.body.appendChild(element);
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                document.body.removeChild(element);
+                printBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+                printBtn.disabled  = false;
+                setTimeout(() => { printBtn.innerHTML = '<i class="fa-solid fa-file-pdf"></i>'; }, 2500);
+            }).catch(() => {
+                document.body.removeChild(element);
+                printBtn.innerHTML = '<i class="fa-solid fa-file-pdf"></i>';
+                printBtn.disabled  = false;
+            });
+        });
     }
 
     // ── Batch Scanner ─────────────────────────────────────────────
