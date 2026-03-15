@@ -72,16 +72,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 1. Update Profile Card
         statusCard.innerHTML = `
-            <div class="gauge-container" style="height: 150px;">
+            <div class="gauge-container" style="height: 150px; position: relative; display: flex; align-items: center; justify-content: center;">
                 <!-- Using a simple dynamic circle relative to score -->
-                <svg width="150" height="150" viewBox="0 0 100 100" style="transform: rotate(-90deg);">
+                <svg width="150" height="150" viewBox="0 0 100 100" style="transform: rotate(-90deg); overflow: visible;">
                     <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="8"></circle>
-                    <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="8" class="gauge-score ${ringClass}"
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="8" class="${ringClass}"
                         stroke-dasharray="283" stroke-dashoffset="${283 - (283 * result.score) / 100}" 
-                        style="transition: stroke-dashoffset 1.5s ease;"></circle>
+                        style="transition: stroke-dashoffset 1.5s ease; stroke-linecap: round;"></circle>
                 </svg>
-                <div class="gauge-score ${ringClass}" style="transform: translate(-50%, -40%); font-size: 2.5rem;">
-                    ${result.score}<span style="font-size: 1rem; opacity: 0.5;">/100</span>
+                <div class="${ringClass}" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2.5rem; font-weight: 800; display: flex; align-items: baseline; justify-content: center; width: 100%;">
+                    ${result.score}<span style="font-size: 1rem; opacity: 0.5; margin-left: 2px;">/100</span>
                 </div>
             </div>
             
@@ -96,6 +96,13 @@ document.addEventListener('DOMContentLoaded', () => {
             mlPred.textContent = result.ml_prediction.prediction;
             mlPred.className = result.ml_prediction.prediction === 'Phishing' ? 'danger' : 'safe';
             mlConf.textContent = result.ml_prediction.confidence;
+        }
+
+        // 2b. Add Actual Target Preview Screenshot
+        const screenshotBox = document.querySelector('.screenshot-box');
+        if (screenshotBox) {
+            screenshotBox.style.background = `url('https://image.thum.io/get/width/400/crop/800/${result.url}') center top / cover no-repeat`;
+            screenshotBox.innerHTML = ''; 
         }
 
         // 3. Populate Diagnostics Sections

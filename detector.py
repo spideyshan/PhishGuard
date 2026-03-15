@@ -48,7 +48,7 @@ def analyze_url(url):
         return report
 
     ml_url_length = len(original_url)
-    ml_domain_age = 500
+    ml_domain_age = 0  # Default to highly suspicious (0 days old) if whois fails
     ml_num_subdomains = 0
     ml_has_https = 1 if original_url.startswith('https') else 0
     ml_is_blacklisted = 0
