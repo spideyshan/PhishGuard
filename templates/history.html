@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhishGuard | Scan History</title>
+    <meta name="description" content="Full history of all URLs scanned by PhishGuard.">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=500">
+    <style>
+        .history-table-wrap { overflow-x: auto; }
+        .history-table {
+            width: 100%; border-collapse: collapse; font-size: 0.95rem;
+        }
+        .history-table th {
+            background: rgba(59,130,246,0.15); padding: 1rem 1.25rem;
+            text-align: left; border-bottom: 1px solid var(--glass-border);
+            color: var(--primary); font-weight: 600; white-space: nowrap;
+        }
+        .history-table td {
+            padding: 0.9rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.04);
+            vertical-align: middle;
+        }
+        .history-table tr:hover td { background: rgba(255,255,255,0.03); }
+        .history-table td.url-cell {
+            max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            color: var(--text-muted); font-size: 0.88rem;
+        }
+        .badge {
+            display: inline-block; padding: 0.3rem 0.75rem; border-radius: 20px;
+            font-size: 0.8rem; font-weight: 700; letter-spacing: 0.5px;
+        }
+        .badge-safe     { background: var(--success-bg); color: var(--success); }
+        .badge-suspicious { background: var(--warning-bg); color: var(--warning); }
+        .badge-phishing  { background: var(--danger-bg); color: var(--danger); }
+        .score-bar-wrap { display:flex; align-items:center; gap:0.75rem; }
+        .score-bar-bg   { flex:1; height:6px; background: rgba(255,255,255,0.08); border-radius:99px; }
+        .score-bar-fill { height:100%; border-radius:99px; transition:width 0.8s ease; }
+        .stat-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; margin-bottom:2rem; }
+        @media(max-width:700px){ .stat-cards { grid-template-columns:1fr; } }
+        .stat-card { background:rgba(0,0,0,0.25); border:1px solid var(--glass-border); border-radius:16px; padding:1.5rem; text-align:center; }
+        .stat-card .stat-val { font-size:2.5rem; font-weight:800; }
+        .stat-card .stat-lbl { color:var(--text-muted); font-size:0.9rem; margin-top:0.25rem; }
+        .search-bar-wrap { margin-bottom:1.5rem; display:flex; gap:1rem; align-items:center; flex-wrap:wrap; }
+        .search-bar-wrap input { flex:1; min-width:200px; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); border-radius:8px; padding:0.75rem 1rem; color:var(--text-main); font-family:inherit; font-size:0.95rem; outline:none; }
+        .search-bar-wrap input:focus { border-color:var(--primary); }
+        .empty-state { text-align:center; padding:4rem 2rem; color:var(--text-muted); }
+        .empty-state i { font-size:3rem; margin-bottom:1rem; opacity:0.3; }
+    </style>
+</head>
+<body>
+    <div class="particles-bg"></div>
+    <div class="glow-sphere sphere-1"></div>
+    <div class="glow-sphere sphere-2"></div>
+
+    <div class="app-container">
+        <header>
+            <nav class="navbar">
+                <div class="logo">
+                    <i class="fa-solid fa-shield-virus"></i>
+                    <a href="/" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:0.5rem;">
+                        <h1>Phish<span>Guard</span></h1>
+                    </a>
+                </div>
+                <div class="nav-actions">
+                    <a href="/" class="nav-link"><i class="fa-solid fa-magnifying-glass"></i> New Scan</a>
+                    <button id="theme-toggle" class="icon-btn" title="Toggle Theme">
+                        <i class="fa-solid fa-sun" id="theme-icon"></i>
+                    </button>
+                </div>
+            </nav>
+            <p class="tagline">Scan History &amp; Threat Log</p>
+        </header>
+
+        <main>
+            <!-- Stat Summary -->
+            {% set total = scans|length %}
+            {% set phishing_count = scans|selectattr('status','equalto','Phishing / Malicious')|list|length %}
+            {% set safe_count = scans|selectattr('status','equalto','Legitimate')|list|length %}
+            <div class="stat-cards">
+                <div class="stat-card">
+                    <div class="stat-val" style="color:var(--primary)">{{ total }}</div>
+                    <div class="stat-lbl"><i class="fa-solid fa-database"></i> Total Scans</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-val" style="color:var(--danger)">{{ phishing_count }}</div>
+                    <div class="stat-lbl"><i class="fa-solid fa-skull-crossbones"></i> Phishing Detected</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-val" style="color:var(--success)">{{ safe_count }}</div>
+                    <div class="stat-lbl"><i class="fa-solid fa-shield-check"></i> Legitimate Sites</div>
+                </div>
+            </div>
+
+            <div class="glass-panel">
+                <div class="search-bar-wrap">
+                    <input type="text" id="search-input" placeholder="🔍  Filter by URL or status..." oninput="filterTable()">
+                    <a href="/" class="primary-btn" style="text-decoration:none;white-space:nowrap;">
+                        <i class="fa-solid fa-plus"></i> New Scan
+                    </a>
+                </div>
+
+                {% if scans %}
+                <div class="history-table-wrap">
+                    <table class="history-table" id="history-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>URL</th>
+                                <th>Risk Score</th>
+                                <th>Status</th>
+                                <th>Scanned At</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for scan in scans %}
+                            {% set badge_class = 'badge-safe' if scan.status == 'Legitimate' else ('badge-suspicious' if scan.status == 'Suspicious' else 'badge-phishing') %}
+                            {% set bar_color   = '#10b981' if scan.status == 'Legitimate' else ('#f59e0b' if scan.status == 'Suspicious' else '#ef4444') %}
+                            <tr data-url="{{ scan.url }}" data-status="{{ scan.status }}">
+                                <td style="color:var(--text-muted);font-size:0.85rem">{{ scan.id }}</td>
+                                <td class="url-cell" title="{{ scan.url }}">{{ scan.url }}</td>
+                                <td>
+                                    <div class="score-bar-wrap">
+                                        <span style="min-width:35px;font-weight:700">{{ scan.score }}</span>
+                                        <div class="score-bar-bg">
+                                            <div class="score-bar-fill" style="width:{{ scan.score }}%;background:{{ bar_color }}"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="badge {{ badge_class }}">{{ scan.status }}</span></td>
+                                <td style="color:var(--text-muted);font-size:0.85rem;white-space:nowrap">{{ scan.scanned_at }}</td>
+                                <td>
+                                    <a href="/?url={{ scan.url|urlencode }}" class="icon-btn" title="Re-scan" style="text-decoration:none;display:inline-flex;">
+                                        <i class="fa-solid fa-rotate"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="fa-solid fa-database"></i>
+                    <h3>No scans yet</h3>
+                    <p>Scan a URL on the <a href="/" style="color:var(--primary)">main page</a> and it will appear here.</p>
+                </div>
+                {% endif %}
+            </div>
+        </main>
+
+        <footer>
+            <p>Developed for web security research. &copy; 2026 Academic Project — PhishGuard</p>
+        </footer>
+    </div>
+
+    <script>
+        function filterTable() {
+            const q = document.getElementById('search-input').value.toLowerCase();
+            document.querySelectorAll('#history-table tbody tr').forEach(row => {
+                const url    = (row.dataset.url    || '').toLowerCase();
+                const status = (row.dataset.status || '').toLowerCase();
+                row.style.display = (url.includes(q) || status.includes(q)) ? '' : 'none';
+            });
+        }
+        // Theme
+        const saved = localStorage.getItem('phishguard-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('theme-icon').className = saved === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            const cur = document.documentElement.getAttribute('data-theme');
+            const next = cur === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('phishguard-theme', next);
+            document.getElementById('theme-icon').className = next === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        });
+    </script>
+</body>
+</html>

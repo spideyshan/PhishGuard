@@ -1,142 +1,199 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhishGuard | Comprehensive Analysis</title>
+    <title>PhishGuard | Comprehensive URL Analysis</title>
+    <meta name="description" content="PhishGuard – Multi-vector Threat Intelligence Platform with ML prediction, VirusTotal, Google Safe Browsing, WHOIS, SSL and Geolocation checks.">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=420">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=500">
 </head>
 <body>
-    <div class="particles-bg" id="particles-js"></div>
+    <div class="particles-bg"></div>
     <div class="glow-sphere sphere-1"></div>
     <div class="glow-sphere sphere-2"></div>
 
     <div class="app-container">
+        <!-- ── HEADER ────────────────────────────────────────────── -->
         <header>
-            <div class="logo">
-                <i class="fa-solid fa-shield-virus"></i>
-                <h1>Phish<span>Guard</span></h1>
-            </div>
-            <p>Comprehensive Threat Intelligence & URL Analysis Framework</p>
+            <nav class="navbar">
+                <div class="logo">
+                    <i class="fa-solid fa-shield-virus"></i>
+                    <h1>Phish<span>Guard</span></h1>
+                </div>
+                <div class="nav-actions">
+                    <a href="/history" class="nav-link" id="history-link">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Scan History
+                    </a>
+                    <button id="theme-toggle" class="icon-btn" title="Toggle Light/Dark Mode">
+                        <i class="fa-solid fa-sun" id="theme-icon"></i>
+                    </button>
+                </div>
+            </nav>
+            <p class="tagline">Comprehensive Threat Intelligence &amp; URL Analysis Framework</p>
         </header>
 
         <main>
+            <!-- ── SCANNER PANEL ─────────────────────────────────── -->
             <div class="glass-panel scanner-panel">
-                <h2>Analyze URL Target</h2>
-                <div class="input-group">
-                    <i class="fa-solid fa-link input-icon"></i>
-                    <input type="url" id="url-input" placeholder="https://example.com/login" autocomplete="off" required>
-                    <button id="scan-btn" class="primary-btn">
-                        <span class="btn-text">Extract Intelligence</span>
-                        <i class="fa-solid fa-radar fa-spin" style="display: none;" id="spinner"></i>
+                <!-- Tab buttons -->
+                <div class="tab-bar">
+                    <button class="tab-btn active" id="tab-single" onclick="switchTab('single')">
+                        <i class="fa-solid fa-link"></i> Single URL
+                    </button>
+                    <button class="tab-btn" id="tab-batch" onclick="switchTab('batch')">
+                        <i class="fa-solid fa-list-check"></i> Batch Scanner
+                    </button>
+                    <button class="tab-btn" id="tab-qr" onclick="switchTab('qr')">
+                        <i class="fa-solid fa-qrcode"></i> QR Code
                     </button>
                 </div>
-                <div id="error-msg" class="error-msg"></div>
+
+                <!-- Single URL -->
+                <div id="panel-single" class="tab-panel active">
+                    <h2>Analyze URL Target</h2>
+                    <div class="input-group">
+                        <i class="fa-solid fa-link input-icon"></i>
+                        <input type="url" id="url-input" placeholder="https://example.com/login" autocomplete="off" required>
+                        <button id="scan-btn" class="primary-btn">
+                            <span class="btn-text">Extract Intelligence</span>
+                            <i class="fa-solid fa-radar fa-spin" style="display:none;" id="spinner"></i>
+                        </button>
+                    </div>
+                    <div id="error-msg" class="error-msg"></div>
+                </div>
+
+                <!-- Batch Scanner -->
+                <div id="panel-batch" class="tab-panel" style="display:none;">
+                    <h2>Batch URL Scanner <small style="font-size:0.8rem;opacity:0.5;">(up to 15 URLs)</small></h2>
+                    <textarea id="batch-input" class="batch-textarea" placeholder="Paste URLs here, one per line&#10;https://example.com&#10;http://suspicious-site.net/login&#10;..."></textarea>
+                    <button id="batch-btn" class="primary-btn" style="margin-top:1rem;">
+                        <i class="fa-solid fa-play"></i>
+                        <span class="batch-btn-text">Scan All URLs</span>
+                    </button>
+                    <div id="batch-results" class="batch-results" style="display:none;"></div>
+                </div>
+
+                <!-- QR Code Scanner -->
+                <div id="panel-qr" class="tab-panel" style="display:none;">
+                    <h2>QR Code URL Extractor</h2>
+                    <p style="color:var(--text-muted);margin-bottom:1.5rem;">Upload an image containing a QR code and we'll extract and analyze the embedded URL automatically.</p>
+                    <label class="qr-upload-area" id="qr-upload-label">
+                        <i class="fa-solid fa-qrcode" style="font-size:3rem;color:var(--primary);"></i>
+                        <span>Click to upload QR image (PNG/JPG)</span>
+                        <input type="file" id="qr-file-input" accept="image/*" style="display:none;">
+                    </label>
+                    <canvas id="qr-canvas" style="display:none;"></canvas>
+                    <div id="qr-result" class="qr-result" style="display:none;"></div>
+                </div>
             </div>
 
-            <div class="glass-panel results-panel" id="results-panel" style="display: none;">
+            <!-- ── RESULTS PANEL ─────────────────────────────────── -->
+            <div class="glass-panel results-panel" id="results-panel" style="display:none;">
                 <div class="results-header">
                     <h2>Intelligence Report</h2>
-                    <button id="reset-btn" class="icon-btn" title="New Scan"><i class="fa-solid fa-arrow-rotate-left"></i></button>
+                    <div style="display:flex;gap:0.75rem;">
+                        <button id="copy-btn" class="icon-btn" title="Copy Report">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                        <button id="print-btn" class="icon-btn" title="Export PDF">
+                            <i class="fa-solid fa-file-pdf"></i>
+                        </button>
+                        <button id="reset-btn" class="icon-btn" title="New Scan">
+                            <i class="fa-solid fa-arrow-rotate-left"></i>
+                        </button>
+                    </div>
                 </div>
-                
+
                 <div class="results-layout">
-                    <!-- Left Sidebar Profile -->
+                    <!-- Left Sidebar -->
                     <div class="threat-profile">
-                        <div class="status-card" id="status-card">
-                             <!-- Status Widget Injected Here -->
-                        </div>
-                        
+                        <div class="status-card" id="status-card"></div>
+
                         <div class="ml-module" id="ml-module">
                             <h3><i class="fa-solid fa-brain"></i> Machine Learning Engine</h3>
                             <div class="ml-box">
-                                <div class="ml-row">
-                                    <span>Prediction:</span>
-                                    <strong id="ml-pred">--</strong>
-                                </div>
-                                <div class="ml-row">
-                                    <span>Confidence:</span>
-                                    <strong id="ml-conf">--</strong>
-                                </div>
+                                <div class="ml-row"><span>Prediction:</span><strong id="ml-pred">--</strong></div>
+                                <div class="ml-row"><span>Confidence:</span><strong id="ml-conf">--</strong></div>
                             </div>
                         </div>
 
                         <div class="screenshot-module">
                             <h3><i class="fa-solid fa-camera"></i> Target Preview</h3>
-                            <div class="screenshot-box">
+                            <div class="screenshot-box" id="screenshot-box">
                                 <i class="fa-solid fa-image-slash"></i>
                                 <span>Preview Disabled for Safety</span>
                             </div>
                         </div>
-                        
-                        <div class="warning-module" id="warning-module">
-                             <!-- Warnings Injected Here -->
-                        </div>
-                        
+
+                        <div class="warning-module" id="warning-module"></div>
+
                         <button class="danger-btn report-btn" id="report-btn">
                             <i class="fa-solid fa-flag"></i> Report this Site
                         </button>
                     </div>
-                    
-                    <!-- Right Content Diagnostics -->
+
+                    <!-- Right Diagnostics -->
                     <div class="diagnostics-profile">
                         <div class="diagnostic-card">
-                            <h3>1. URL Feature Analyzer</h3>
+                            <h3><i class="fa-solid fa-link"></i> 1. URL Feature Analyzer</h3>
                             <div class="indicators-list" id="url-features"></div>
                         </div>
-                        
                         <div class="diagnostic-card">
-                            <h3>2. Domain Information Checker</h3>
+                            <h3><i class="fa-solid fa-globe"></i> 2. Domain Information (WHOIS)</h3>
                             <div class="indicators-list" id="domain-info"></div>
                         </div>
-                        
                         <div class="diagnostic-card">
-                            <h3>3. SSL Certificate Verification</h3>
+                            <h3><i class="fa-solid fa-lock"></i> 3. SSL Certificate Verification</h3>
                             <div class="indicators-list" id="ssl-check"></div>
                         </div>
-                        
                         <div class="diagnostic-card">
-                            <h3>4. Website Content Analysis</h3>
+                            <h3><i class="fa-solid fa-map-location-dot"></i> 4. Server Geolocation</h3>
+                            <div class="indicators-list" id="geo-info"></div>
+                        </div>
+                        <div class="diagnostic-card">
+                            <h3><i class="fa-solid fa-code"></i> 5. Website Content Analysis</h3>
                             <div class="indicators-list" id="content-analysis"></div>
                         </div>
-                        
                         <div class="diagnostic-card">
-                            <h3>5. Global Threat API Checks (URLHaus)</h3>
+                            <h3><i class="fa-solid fa-database"></i> 6. Global Threat API Checks</h3>
+                            <p class="api-note">URLHaus &bull; VirusTotal &bull; Google Safe Browsing</p>
                             <div class="indicators-list" id="api-reports"></div>
                         </div>
                     </div>
                 </div>
             </div>
-            
+
+            <!-- ── INFO CARDS ────────────────────────────────────── -->
             <section class="info-section">
                 <div class="info-grid">
                     <div class="glass-card">
                         <i class="fa-solid fa-network-wired icon-accent"></i>
                         <h3>Multi-Vector Analysis</h3>
-                        <p>Simultaneously checks URL heuristics, WHOIS domain data, SSL certificates, content payloads, and global Threat DB APIs.</p>
+                        <p>Simultaneously checks URL heuristics, WHOIS domain data, SSL certificates, content payloads, geolocation, and global Threat DB APIs.</p>
                     </div>
                     <div class="glass-card">
                         <i class="fa-solid fa-microchip icon-accent"></i>
                         <h3>Machine Learning Model</h3>
-                        <p>Incorporates an advanced Random Forest predicting engine trained on vast datasets of known phishing and benign traffic patterns.</p>
+                        <p>Uses a Random Forest classifier trained to predict phishing probability based on domain age, URL structure, SSL status, and historical threat indicators.</p>
                     </div>
                     <div class="glass-card">
                         <i class="fa-solid fa-gauge-high icon-accent"></i>
                         <h3>Risk Score Engine</h3>
-                        <p>Dynamically calculates an aggregate security threat score (0-100) and displays active user warnings and mitigation recommendations.</p>
+                        <p>Dynamically calculates an aggregate security threat score (0-100) with clear status labels and actionable recommendations to protect users.</p>
                     </div>
                 </div>
             </section>
         </main>
 
         <footer>
-            <p>Developed for continuous web security. &copy; 2026 Academic Project.</p>
+            <p>Developed for web security research. &copy; 2026 Academic Project — PhishGuard</p>
         </footer>
     </div>
 
-    <script src="{{ url_for('static', filename='js/script.js') }}?v=421"></script>
+    <!-- jsQR for QR code decoding -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}?v=500"></script>
 </body>
 </html>

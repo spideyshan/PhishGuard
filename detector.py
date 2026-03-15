@@ -10,6 +10,10 @@ import joblib
 import numpy as np
 import os
 
+# ─── API Keys (replace with real keys to activate) ────────────────────────────
+VIRUSTOTAL_API_KEY  = os.environ.get("VIRUSTOTAL_API_KEY", "")   # get free key: virustotal.com
+GOOGLE_SB_API_KEY   = os.environ.get("GOOGLE_SB_API_KEY", "")    # get free key: console.cloud.google.com
+
 # Load ML Model if exists
 try:
     ML_MODEL = joblib.load(os.path.join(os.path.dirname(__file__), 'phishing_rf_model.pkl'))
@@ -30,6 +34,7 @@ def analyze_url(url):
         "ssl_check": [],
         "content_analysis": [],
         "api_reports": [],
+        "geo_info": [],
         "ml_prediction": {}
     }
     
@@ -188,7 +193,7 @@ def analyze_url(url):
          report["ssl_check"].append({"type": "warning", "message": "SSL verification skipped for raw IP."})
 
     # ---------------------------------------------
-    # 4. EXTERNAL THREAT API (URLHaus Abuse.ch API)
+    # 4a. EXTERNAL THREAT API (URLHaus Abuse.ch)
     # ---------------------------------------------
     try:
         urlhaus_req = requests.post("https://urlhaus-api.abuse.ch/v1/url/", data={"url": url}, timeout=4)
@@ -196,15 +201,99 @@ def analyze_url(url):
             urlhaus_data = urlhaus_req.json()
             if urlhaus_data.get("query_status") == "ok":
                 threat_type = urlhaus_data.get("threat", "Malware/Phishing")
-                report["api_reports"].append({"type": "danger", "message": f"URLHaus API: Flagged as Malicious ({threat_type})."})
+                report["api_reports"].append({"type": "danger", "message": f"URLHaus: Flagged as Malicious ({threat_type})."})
                 risk_points += 50
                 ml_is_blacklisted = 1
             elif urlhaus_data.get("query_status") == "no_results":
-                report["api_reports"].append({"type": "success", "message": "URLHaus API: Not found in active Threat Databases. Domain is currently clean."})
+                report["api_reports"].append({"type": "success", "message": "URLHaus: Not found in active Threat Databases."})
             else:
-                report["api_reports"].append({"type": "success", "message": "URLHaus API: No malicious activity reported."})
+                report["api_reports"].append({"type": "success", "message": "URLHaus: No malicious activity reported."})
     except Exception:
-         report["api_reports"].append({"type": "warning", "message": "URLHaus Threat API was unreachable."})
+        report["api_reports"].append({"type": "warning", "message": "URLHaus API was unreachable."})
+
+    # ---------------------------------------------
+    # 4b. VIRUSTOTAL API (set VIRUSTOTAL_API_KEY env var)
+    # ---------------------------------------------
+    if VIRUSTOTAL_API_KEY:
+        try:
+            import base64
+            url_id = base64.urlsafe_b64encode(url.encode()).decode().strip('=')
+            vt_resp = requests.get(
+                f"https://www.virustotal.com/api/v3/urls/{url_id}",
+                headers={"x-apikey": VIRUSTOTAL_API_KEY}, timeout=5
+            )
+            if vt_resp.status_code == 200:
+                stats = vt_resp.json().get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
+                malicious = stats.get("malicious", 0)
+                suspicious_vt = stats.get("suspicious", 0)
+                total = sum(stats.values()) or 1
+                if malicious > 0:
+                    report["api_reports"].append({"type": "danger", "message": f"VirusTotal: {malicious}/{total} engines flagged this URL as malicious."})
+                    risk_points += min(malicious * 5, 40)
+                    ml_is_blacklisted = 1
+                elif suspicious_vt > 0:
+                    report["api_reports"].append({"type": "warning", "message": f"VirusTotal: {suspicious_vt}/{total} engines flagged this URL as suspicious."})
+                    risk_points += 10
+                else:
+                    report["api_reports"].append({"type": "success", "message": f"VirusTotal: 0/{total} engines reported threats. URL is clean."})
+        except Exception:
+            report["api_reports"].append({"type": "warning", "message": "VirusTotal API check failed."})
+    else:
+        report["api_reports"].append({"type": "info", "message": "VirusTotal: API key not configured (set VIRUSTOTAL_API_KEY env var)."})
+
+    # ---------------------------------------------
+    # 4c. GOOGLE SAFE BROWSING API
+    # ---------------------------------------------
+    if GOOGLE_SB_API_KEY:
+        try:
+            gsb_payload = {
+                "client": {"clientId": "phishguard", "clientVersion": "1.0"},
+                "threatInfo": {
+                    "threatTypes": ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE", "POTENTIALLY_HARMFUL_APPLICATION"],
+                    "platformTypes": ["ANY_PLATFORM"],
+                    "threatEntryTypes": ["URL"],
+                    "threatEntries": [{"url": url}]
+                }
+            }
+            gsb_resp = requests.post(
+                f"https://safebrowsing.googleapis.com/v4/threatMatches:find?key={GOOGLE_SB_API_KEY}",
+                json=gsb_payload, timeout=5
+            )
+            if gsb_resp.status_code == 200:
+                matches = gsb_resp.json().get("matches", [])
+                if matches:
+                    threat_type = matches[0].get("threatType", "Unknown")
+                    report["api_reports"].append({"type": "danger", "message": f"Google Safe Browsing: Flagged as {threat_type}."})
+                    risk_points += 40
+                    ml_is_blacklisted = 1
+                else:
+                    report["api_reports"].append({"type": "success", "message": "Google Safe Browsing: No threats detected."})
+        except Exception:
+            report["api_reports"].append({"type": "warning", "message": "Google Safe Browsing API check failed."})
+    else:
+        report["api_reports"].append({"type": "info", "message": "Google Safe Browsing: API key not configured (set GOOGLE_SB_API_KEY env var)."})
+
+    # ---------------------------------------------
+    # 4d. IP GEOLOCATION (free, no key needed)
+    # ---------------------------------------------
+    try:
+        resolved_ip = socket.gethostbyname(domain_no_port)
+        geo_resp = requests.get(f"https://ipapi.co/{resolved_ip}/json/", timeout=3)
+        if geo_resp.status_code == 200:
+            geo = geo_resp.json()
+            country = geo.get("country_name", "Unknown")
+            city    = geo.get("city", "")
+            org     = geo.get("org", "Unknown Org")
+            flag_emoji = geo.get("country_code", "")
+            report["geo_info"].append({"type": "info", "message": f"Server IP: {resolved_ip}"})
+            report["geo_info"].append({"type": "info", "message": f"Location: {city}, {country} {flag_emoji}"})
+            report["geo_info"].append({"type": "info", "message": f"Hosting Org: {org}"})
+            HIGH_RISK_COUNTRIES = ['Russia', 'Nigeria', 'North Korea', 'China']
+            if country in HIGH_RISK_COUNTRIES:
+                report["geo_info"].append({"type": "warning", "message": f"Server is hosted in a high-risk country ({country})."})
+                risk_points += 10
+    except Exception:
+        report["geo_info"].append({"type": "warning", "message": "Could not resolve server geolocation."})
 
     # ---------------------------------------------
     # 5. WEBSITE CONTENT ANALYSIS
