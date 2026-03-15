@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhishGuard | Comprehensive Analysis</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=420">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="particles-bg" id="particles-js"></div>
+    <div class="glow-sphere sphere-1"></div>
+    <div class="glow-sphere sphere-2"></div>
+
+    <div class="app-container">
+        <header>
+            <div class="logo">
+                <i class="fa-solid fa-shield-virus"></i>
+                <h1>Phish<span>Guard</span></h1>
+            </div>
+            <p>Comprehensive Threat Intelligence & URL Analysis Framework</p>
+        </header>
+
+        <main>
+            <div class="glass-panel scanner-panel">
+                <h2>Analyze URL Target</h2>
+                <div class="input-group">
+                    <i class="fa-solid fa-link input-icon"></i>
+                    <input type="url" id="url-input" placeholder="https://example.com/login" autocomplete="off" required>
+                    <button id="scan-btn" class="primary-btn">
+                        <span class="btn-text">Extract Intelligence</span>
+                        <i class="fa-solid fa-radar fa-spin" style="display: none;" id="spinner"></i>
+                    </button>
+                </div>
+                <div id="error-msg" class="error-msg"></div>
+            </div>
+
+            <div class="glass-panel results-panel" id="results-panel" style="display: none;">
+                <div class="results-header">
+                    <h2>Intelligence Report</h2>
+                    <button id="reset-btn" class="icon-btn" title="New Scan"><i class="fa-solid fa-arrow-rotate-left"></i></button>
+                </div>
+                
+                <div class="results-layout">
+                    <!-- Left Sidebar Profile -->
+                    <div class="threat-profile">
+                        <div class="status-card" id="status-card">
+                             <!-- Status Widget Injected Here -->
+                        </div>
+                        
+                        <div class="ml-module" id="ml-module">
+                            <h3><i class="fa-solid fa-brain"></i> Machine Learning Engine</h3>
+                            <div class="ml-box">
+                                <div class="ml-row">
+                                    <span>Prediction:</span>
+                                    <strong id="ml-pred">--</strong>
+                                </div>
+                                <div class="ml-row">
+                                    <span>Confidence:</span>
+                                    <strong id="ml-conf">--</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="screenshot-module">
+                            <h3><i class="fa-solid fa-camera"></i> Target Preview</h3>
+                            <div class="screenshot-box">
+                                <i class="fa-solid fa-image-slash"></i>
+                                <span>Preview Disabled for Safety</span>
+                            </div>
+                        </div>
+                        
+                        <div class="warning-module" id="warning-module">
+                             <!-- Warnings Injected Here -->
+                        </div>
+                        
+                        <button class="danger-btn report-btn" id="report-btn">
+                            <i class="fa-solid fa-flag"></i> Report this Site
+                        </button>
+                    </div>
+                    
+                    <!-- Right Content Diagnostics -->
+                    <div class="diagnostics-profile">
+                        <div class="diagnostic-card">
+                            <h3>1. URL Feature Analyzer</h3>
+                            <div class="indicators-list" id="url-features"></div>
+                        </div>
+                        
+                        <div class="diagnostic-card">
+                            <h3>2. Domain Information Checker</h3>
+                            <div class="indicators-list" id="domain-info"></div>
+                        </div>
+                        
+                        <div class="diagnostic-card">
+                            <h3>3. SSL Certificate Verification</h3>
+                            <div class="indicators-list" id="ssl-check"></div>
+                        </div>
+                        
+                        <div class="diagnostic-card">
+                            <h3>4. Website Content Analysis</h3>
+                            <div class="indicators-list" id="content-analysis"></div>
+                        </div>
+                        
+                        <div class="diagnostic-card">
+                            <h3>5. Global Threat API Checks (URLHaus)</h3>
+                            <div class="indicators-list" id="api-reports"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <section class="info-section">
+                <div class="info-grid">
+                    <div class="glass-card">
+                        <i class="fa-solid fa-network-wired icon-accent"></i>
+                        <h3>Multi-Vector Analysis</h3>
+                        <p>Simultaneously checks URL heuristics, WHOIS domain data, SSL certificates, content payloads, and global Threat DB APIs.</p>
+                    </div>
+                    <div class="glass-card">
+                        <i class="fa-solid fa-microchip icon-accent"></i>
+                        <h3>Machine Learning Model</h3>
+                        <p>Incorporates an advanced Random Forest predicting engine trained on vast datasets of known phishing and benign traffic patterns.</p>
+                    </div>
+                    <div class="glass-card">
+                        <i class="fa-solid fa-gauge-high icon-accent"></i>
+                        <h3>Risk Score Engine</h3>
+                        <p>Dynamically calculates an aggregate security threat score (0-100) and displays active user warnings and mitigation recommendations.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Developed for continuous web security. &copy; 2026 Academic Project.</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}?v=420"></script>
+</body>
+</html>
