@@ -114,22 +114,37 @@ def analyze_url(url):
                 expiration_date = expiration_date[0]
                 
             if creation_date:
-                age_days = (datetime.datetime.now() - creation_date).days
-                ml_domain_age = age_days
-                report["domain_info"].append({"type": "info", "message": f"Domain Created: {creation_date.strftime('%Y-%m-%d')} ({age_days} days ago)"})
-                
-                if age_days < 30:
-                    report["domain_info"].append({"type": "danger", "message": f"Domain is newly registered! Highly suspicious."})
-                    risk_points += 25
-                elif age_days > 365:
-                    report["domain_info"].append({"type": "success", "message": f"Domain is well-established (> 1 year)."})
-                    risk_points -= 5
+                if hasattr(creation_date, 'tzinfo') and creation_date.tzinfo is not None:
+                    creation_date = creation_date.replace(tzinfo=None)
+                if isinstance(creation_date, str):
+                    try: creation_date = datetime.datetime.strptime(creation_date.split('T')[0], '%Y-%m-%d')
+                    except Exception: pass
+                    
+                if isinstance(creation_date, datetime.datetime):
+                    age_days = (datetime.datetime.now() - creation_date).days
+                    ml_domain_age = age_days
+                    report["domain_info"].append({"type": "info", "message": f"Domain Created: {creation_date.strftime('%Y-%m-%d')} ({age_days} days ago)"})
+                    
+                    if age_days < 30:
+                        report["domain_info"].append({"type": "danger", "message": f"Domain is newly registered! Highly suspicious."})
+                        risk_points += 25
+                    elif age_days > 365:
+                        report["domain_info"].append({"type": "success", "message": f"Domain is well-established (> 1 year)."})
+                        risk_points -= 5
+                else:
+                    report["domain_info"].append({"type": "warning", "message": "Could not parse domain creation date."})
+                    risk_points += 5
             else:
                 report["domain_info"].append({"type": "warning", "message": "Could not verify domain creation date."})
                 risk_points += 5
                 
             if expiration_date:
-                 report["domain_info"].append({"type": "info", "message": f"Domain Expires: {expiration_date.strftime('%Y-%m-%d')}"})
+                 if hasattr(expiration_date, 'tzinfo') and expiration_date.tzinfo is not None:
+                     expiration_date = expiration_date.replace(tzinfo=None)
+                 if isinstance(expiration_date, datetime.datetime):
+                     report["domain_info"].append({"type": "info", "message": f"Domain Expires: {expiration_date.strftime('%Y-%m-%d')}"})
+                 else:
+                     report["domain_info"].append({"type": "info", "message": f"Domain Expires: {str(expiration_date)[:10]}"})
                  
             if w.registrar:
                  report["domain_info"].append({"type": "info", "message": f"Registrar: {w.registrar}"})
