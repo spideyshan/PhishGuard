@@ -278,20 +278,27 @@ def analyze_url(url):
     # ---------------------------------------------
     try:
         resolved_ip = socket.gethostbyname(domain_no_port)
-        geo_resp = requests.get(f"https://ipapi.co/{resolved_ip}/json/", timeout=3)
+        geo_resp = requests.get(
+            f"http://ip-api.com/json/{resolved_ip}?fields=status,country,countryCode,regionName,city,org,isp",
+            timeout=4
+        )
         if geo_resp.status_code == 200:
             geo = geo_resp.json()
-            country = geo.get("country_name", "Unknown")
-            city    = geo.get("city", "")
-            org     = geo.get("org", "Unknown Org")
-            flag_emoji = geo.get("country_code", "")
-            report["geo_info"].append({"type": "info", "message": f"Server IP: {resolved_ip}"})
-            report["geo_info"].append({"type": "info", "message": f"Location: {city}, {country} {flag_emoji}"})
-            report["geo_info"].append({"type": "info", "message": f"Hosting Org: {org}"})
-            HIGH_RISK_COUNTRIES = ['Russia', 'Nigeria', 'North Korea', 'China']
-            if country in HIGH_RISK_COUNTRIES:
-                report["geo_info"].append({"type": "warning", "message": f"Server is hosted in a high-risk country ({country})."})
-                risk_points += 10
+            if geo.get("status") == "success":
+                country = geo.get("country", "Unknown")
+                city    = geo.get("city", "")
+                region  = geo.get("regionName", "")
+                org     = geo.get("org") or geo.get("isp", "Unknown")
+                cc      = geo.get("countryCode", "")
+                report["geo_info"].append({"type": "info", "message": f"Server IP: {resolved_ip}"})
+                report["geo_info"].append({"type": "info", "message": f"Location: {city}, {region}, {country} [{cc}]"})
+                report["geo_info"].append({"type": "info", "message": f"Hosting Org / ISP: {org}"})
+                HIGH_RISK = ['Russia', 'Nigeria', 'North Korea', 'China', 'Iran']
+                if country in HIGH_RISK:
+                    report["geo_info"].append({"type": "warning", "message": f"Server hosted in a high-risk country ({country})."})
+                    risk_points += 10
+            else:
+                report["geo_info"].append({"type": "info", "message": f"Server IP: {resolved_ip} (geo unavailable)"})
     except Exception:
         report["geo_info"].append({"type": "warning", "message": "Could not resolve server geolocation."})
 
