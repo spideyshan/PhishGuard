@@ -177,9 +177,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const setLoadingState = (isLoading) => {
         if (isLoading) {
-            scanBtn.disabled = true; btnText.style.display = 'none'; spinner.style.display = 'inline-block'; urlInput.disabled = true;
+            scanBtn.disabled = true; 
+            btnText.textContent = 'Extracting...'; 
+            spinner.style.display = 'inline-block'; 
+            urlInput.disabled = true;
         } else {
-            scanBtn.disabled = false; btnText.style.display = 'inline-block'; spinner.style.display = 'none'; urlInput.disabled = false;
+            scanBtn.disabled = false; 
+            btnText.textContent = 'Extract Intelligence'; 
+            spinner.style.display = 'none'; 
+            urlInput.disabled = false;
         }
     };
 
